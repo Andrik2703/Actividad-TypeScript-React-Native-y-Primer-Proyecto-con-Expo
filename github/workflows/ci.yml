@@ -1,35 +1,105 @@
+# ============================================
+# BLOQUE 1: NOMBRE DEL WORKFLOW
+# ============================================
+# Esto es solo el título que aparece en la pestaña Actions de GitHub
+# Le puse "CI App Logistica" para saber para qué sirve este pipeline
 name: CI App Logistica
 
+# ============================================
+# BLOQUE 2: DISPARADORES (TRIGGERS)
+# ============================================
+# Aquí defino CUÁNDO se va a activar este workflow automáticamente
+# El más importante es pull_request hacia main, porque así nadie puede
+# hacer merge sin que el pipeline revise el código primero
 on:
   push:
-    branches: [ main ]
+    branches: [ main ]        # Cuando alguien sube código directo a main
   pull_request:
-    branches: [ main ]
+    branches: [ main ]        # Cuando abren un Pull Request hacia main
 
+# ============================================
+# BLOQUE 3: TRABAJOS (JOBS)
+# ============================================
+# Un workflow puede tener varios jobs. Por ahora solo tengo uno
+# En el futuro puedo agregar más como "pruebas" o "build"
 jobs:
+  # ID de mi trabajo (puede ser cualquier nombre)
   validar-codigo:
+    
+    # ============================================
+    # BLOQUE 4: RUNNER (MÁQUINA VIRTUAL)
+    # ============================================
+    # Elijo Ubuntu porque es gratis y suficiente para lo que necesito
     runs-on: ubuntu-latest
 
+    # ============================================
+    # BLOQUE 5: VERSIÓN DE NODE.JS
+    # ============================================
+    # Uso Node 20.x que es la versión LTS (la más estable)
     strategy:
       matrix:
         node-version: [20.x]
 
+    # ============================================
+    # BLOQUE 6: PASOS (STEPS)
+    # ============================================
+    # Cada paso es una tarea concreta que se ejecuta en orden
+    # Si un paso falla, el pipeline se detiene y no sigue
     steps:
+      
+      # ----- PASO 1: CLONAR EL REPOSITORIO -----
+      # Baja todo el código del repo al runner.
+      # Sin esto, el runner no tiene acceso a mi código.
       - name: Clonar el repositorio
         uses: actions/checkout@v4
 
+      # ----- PASO 2: CONFIGURAR NODE.JS -----
+      # Instala Node.js en la versión que especifiqué.
+      # El 'cache: npm' guarda las dependencias para que la próxima
+      # ejecución sea más rápida.
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
+      # ----- PASO 3: INSTALAR DEPENDENCIAS -----
+      # Uso 'npm ci' en lugar de 'npm install' porque:
+      # - Es más rápido
+      # - Respeta exactamente el package-lock.json
+      # - Borra node_modules y reinstala desde cero
+      # Si alguien tiene mal las versiones, aquí falla.
       - name: Instalar dependencias
         run: npm ci
 
+      # ----- PASO 4: VERIFICAR TIPOS DE TYPESCRIPT -----
+      # Revisa que no haya errores de TypeScript.
+      # El flag --noEmit es para que solo revise, no genere archivos .js
+      # En mi app logística, un error de tipo puede romper una pantalla
+      # o mostrar datos incorrectos (ej: coordenadas mal escritas)
       - name: Verificar tipos TypeScript
         run: npx tsc --noEmit
 
+      # ----- PASO 5: REVISAR ESTILO CON ESLINT -----
+      # Ejecuta el linter para que todo el equipo escriba código
+      # con el mismo estilo. Si alguien no sigue las reglas,
+      # el pipeline falla y lo obliga a corregir.
       - name: Revisar estilo de codigo con ESLint
         run: npm run lint
 
+      # ============================================
+      # BLOQUE 7: ESPACIO PARA ESCALAR (OPCIONAL)
+      # ============================================
+      # Aquí puedo agregar más pasos en el futuro sin romper nada
+      # Por ejemplo:
+      #
+      # - name: Ejecutar pruebas unitarias
+      #   run: npm test
+      #
+      # - name: Hacer build con Expo
+      #   run: npx eas build --platform android --non-interactive
+      #
+      # - name: Notificar a Discord si falla
+      #   if: failure()
+      #   run: curl -X POST -H "Content-Type: application/json" -d '{"content":"Pipeline falló"}' $DISCORD_WEBHOOK
+      # ============================================
